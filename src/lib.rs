@@ -157,7 +157,7 @@
 /// # fn log<T>(_: T) {}
 /// # fn foo<T>(_: T) {}
 /// # alias! {
-/// #    std: { true }
+/// #    std: { all() }
 /// # }
 /// #
 /// switch! {
@@ -178,91 +178,222 @@
 /// [`cfg_match`]: https://github.com/rust-lang/rust/issues/115585
 #[macro_export]
 macro_rules! switch {
+    // Empty invocations should return nothing
+    () => {};
+
     // Allow switch!{{ ... }} to act as an expression in certain contexts
+    ({$($tt:tt)*}) => {
+        { $crate::switch! { $($tt)* } }
+    };
+
+    // # Operation: not(...)
     (
-        { $($tt:tt)* }
+        not($($args:tt)*) => $output:tt
+        $($arms:tt)*
     ) => {
-        {
-            $crate::switch! { $($tt)* }
+        $crate::switch! {
+            $($args)* => {
+                $crate::switch! { $($arms)* }
+            }
+            _ => $output
         }
     };
 
-    // Common mistake: arms after wildcard
+    // # Operation: all(...)
+    // ## Empty
     (
-        _ => $output:tt
-        $( $rest:tt )+
+        all() => $output:tt
+        $($arms:tt)*
     ) => {
-        compile_error!(concat!("patterns after a wildcard are ignored: `", stringify!($($cond)+), "`"));
+        $crate::switch! { _ => $output }
+    };
+    // ## Inner Op
+    (
+        all($op:ident($($cond:tt)*)) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            $op($($cond)*) => $output
+            $($arms)*
+        }
+    };
+    // ## Inner Op & More
+    (
+        all($op:ident($($cond:tt)*), $($rest:tt)*) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            $op($($cond)*) => {
+                $crate::switch! {
+                    all($($rest)*) => $output
+                    $($arms)*
+                }
+            }
+            $($arms)*
+        }
+    };
+    // ## Inner Meta
+    (
+        all(#[cfg($meta:meta)]) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            #[cfg($meta)] => $output
+            $($arms)*
+        }
+    };
+    // ## Inner Meta & More
+    (
+        all(#[cfg($meta:meta)], $($rest:tt)*) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            #[cfg($meta)] => {
+                $crate::switch! {
+                    all($($rest)*) => $output
+                    $($arms)*
+                }
+            }
+            $($arms)*
+        }
+    };
+    // ## Inner Alias
+    (
+        all($cond:path) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            $cond => $output
+            $($arms)*
+        }
+    };
+    // ## Inner Alias & More
+    (
+        all($cond:path, $($rest:tt)*) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            $cond => {
+                $crate::switch! {
+                    all($($rest)*) => $output
+                    $($arms)*
+                }
+            }
+            $($arms)*
+        }
     };
 
-    // Wildcard branch
+    // # Operation: any(...)
+    // ## Empty
+    (
+        any() => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! { $($arms)* }
+    };
+    // ## Inner Op
+    (
+        any($op:ident($($cond:tt)*)) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            $op($($cond)*) => $output
+            $($arms)*
+        }
+    };
+    // ## Inner Op & More
+    (
+        any($op:ident($($cond:tt)*), $($rest:tt)*) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            $op($($cond)*) => $output
+            _ => {
+                $crate::switch! {
+                    any($($rest)*) => $output
+                    $($arms)*
+                }
+            }
+        }
+    };
+    // ## Inner Meta
+    (
+        any(#[cfg($meta:meta)]) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            #[cfg($meta)] => $output
+            $($arms)*
+        }
+    };
+    // ## Inner Meta & More
+    (
+        any(#[cfg($meta:meta)], $($rest:tt)*) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            #[cfg($meta)] => $output
+            any($($rest)*) => $output
+            $($arms)*
+        }
+    };
+    // ## Inner Alias
+    (
+        any($cond:path) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            $cond => $output
+            $($arms)*
+        }
+    };
+    // ## Inner Alias & More
+    (
+        any($cond:path, $($rest:tt)*) => $output:tt
+        $($arms:tt)*
+    ) => {
+        $crate::switch! {
+            $cond => $output
+            any($($rest)*) => $output
+            $($arms)*
+        }
+    };
+
+    // # Wildcard Branch
     (
         _ => { $($output:tt)* }
     ) => {
         $($output)*
     };
-
-    // #[cfg(...)] integration
+    // ## Common Mistake: arms after wildcard
     (
-        #[cfg($cfg:meta)] => $output:tt
+        _ => $output:tt
+        $($arms:tt)+
     ) => {
-        $crate::eval!(
-            { $crate::switch! { _ => $output } }
-            { }
-            { #[cfg($cfg)] }
-        );
-    };
-    (
-        #[cfg($cfg:meta)] => $output:tt
-        $( $rest:tt )+
-    ) => {
-        $crate::eval!(
-            { $crate::switch! { _ => $output } }
-            { $crate::switch! { $($rest)+ } }
-            { #[cfg($cfg)] }
-        );
+        compile_error!(concat!("patterns after a wildcard are ignored: `", stringify!($($arms)+), "`"));
     };
 
-    // ops integration
+    // # cfg(...) Integration
     (
-        $op:ident($($args:tt)*) => $output:tt
+        #[cfg($meta:meta)] => $output:tt
+        $($arms:tt)*
     ) => {
-        $crate::eval!(
-            { $crate::switch! { _ => $output } }
-            { }
-            { $op($($args)*) }
-        );
-    };
-    (
-        $op:ident($($args:tt)*) => $output:tt
-        $( $rest:tt )+
-    ) => {
-        $crate::eval!(
-            { $crate::switch! { _ => $output } }
-            { $crate::switch! { $($rest)+ } }
-            { $op($($args)*) }
-        );
+        #[cfg($meta)]
+        $crate::switch! { _ => $output }
+
+        #[cfg(not($meta))]
+        $crate::switch! { $($arms)* }
     };
 
-    // alias integration
+    // # Alias Integration
     (
         $cond:path => $output:tt
+        $($arms:tt)*
     ) => {
-        $crate::eval!(
-            { $crate::switch! { _ => $output } }
-            { }
-            { $cond }
-        );
-    };
-    (
-        $cond:path => $output:tt
-        $( $rest:tt )+
-    ) => {
-        $crate::eval!(
-            { $crate::switch! { _ => $output } }
-            { $crate::switch! { $($rest)+ } }
-            { $cond }
-        );
+        $cond! {
+            if { $crate::switch! { _ => $output } }
+            else { $crate::switch! { $($arms)* } }
+        }
     };
 }
 
@@ -377,7 +508,7 @@ macro_rules! enabled {
 ///    ```
 ///    # use crossfig::alias;
 ///    # alias! {
-///    #    std: { true }
+///    #    std: { all() }
 ///    # }
 ///    if std!() {
 ///        // Have `std`!
@@ -389,7 +520,7 @@ macro_rules! enabled {
 ///    ```
 ///    # use crossfig::alias;
 ///    # alias! {
-///    #    std: { true }
+///    #    std: { all() }
 ///    # }
 ///    std! {
 ///        // Have `std`!
@@ -401,7 +532,7 @@ macro_rules! enabled {
 ///    ```
 ///    # use crossfig::alias;
 ///    # alias! {
-///    #    std: { true }
+///    #    std: { all() }
 ///    # }
 ///    std! {
 ///        if {
@@ -415,7 +546,7 @@ macro_rules! enabled {
 ///    ```
 ///    # use crossfig::{alias, switch};
 ///    # alias! {
-///    #    std: { true }
+///    #    std: { all() }
 ///    # }
 ///    switch! {
 ///        std => {
@@ -431,7 +562,10 @@ macro_rules! enabled {
 ///    ```
 #[macro_export]
 macro_rules! alias {
+    // Empty invocations should return nothing
     () => {};
+
+    // Single arm with no trailing comma
     (
         $(#[$p_meta:meta])*
         $vis:vis $p:ident: { $($cond:tt)+ }
@@ -441,29 +575,29 @@ macro_rules! alias {
             $vis $p: { $($cond)+ },
         }
     };
+
+    // Some number of arms with trailing comma
     (
         $(#[$p_meta:meta])*
         $vis:vis $p:ident: { $($cond:tt)+ },
-
         $($rest:tt)*
     ) => {
-        $crate::eval!(
-            {
+        $crate::switch! {
+            $($cond)+ => {
                 $(#[$p_meta])*
                 #[doc(inline)]
                 ///
                 #[doc = concat!("This macro passes the provided code because `", stringify!($($cond)+), "` is currently active.")]
                 $vis use $crate::enabled as $p;
             }
-            {
+            _ => {
                 $(#[$p_meta])*
                 #[doc(inline)]
                 ///
                 #[doc = concat!("This macro suppresses the provided code because `", stringify!($($cond)+), "` is _not_ currently active.")]
                 $vis use $crate::disabled as $p;
             }
-            { $($cond)+ }
-        );
+        }
 
         $crate::alias! {
             $($rest)*
@@ -471,203 +605,10 @@ macro_rules! alias {
     };
 }
 
-#[doc(hidden)]
-#[macro_export]
-macro_rules! eval {
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { true }) => {
-        $($truthy)*
-    };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { false }) => {
-        $($falsy)*
-    };
-
-    ($truthy:tt $falsy:tt { _ }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { true }
-        );
-    };
-    ($truthy:tt $falsy:tt { all() }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { true }
-        );
-    };
-    ($truthy:tt $falsy:tt { any() }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { false }
-        );
-    };
-    ($truthy:tt $falsy:tt { #[cfg($meta:meta)] }) => {
-        #[cfg($meta)]
-        $crate::eval!(
-            $truthy
-            $falsy
-            { true }
-        );
-
-        #[cfg(not($meta))]
-        $crate::eval!(
-            $truthy
-            $falsy
-            { false }
-        );
-    };
-
-    ($truthy:tt $falsy:tt { not($($cond:tt)*) }) => {
-        $crate::eval!(
-            $falsy
-            $truthy
-            { $($cond)* }
-        );
-    };
-
-    ($truthy:tt $falsy:tt { all(#[cfg($meta:meta)]) }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { all(#[cfg($meta)],) }
-        );
-    };
-    ($truthy:tt $falsy:tt { all($op:ident($($cond:tt)*)) }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { all($op($($cond)*),) }
-        );
-    };
-    ($truthy:tt $falsy:tt { all($cond:path) }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { all($cond,) }
-        );
-    };
-    ($truthy:tt $falsy:tt { all(#[cfg($meta:meta)], $($rest:tt)*) }) => {
-        $crate::eval!(
-            {
-                $crate::eval!(
-                    $truthy
-                    $falsy
-                    { all($($rest)*) }
-                );
-            }
-            $falsy
-            { #[cfg($meta)] }
-        );
-    };
-    ($truthy:tt $falsy:tt { all($op:ident($($cond:tt)*), $($rest:tt)*) }) => {
-        $crate::eval!(
-            {
-                $crate::eval!(
-                    $truthy
-                    $falsy
-                    { all($($rest)*) }
-                );
-            }
-            $falsy
-            { $op($($cond)*) }
-        );
-    };
-    ($truthy:tt $falsy:tt { all($cond:path, $($rest:tt)*) }) => {
-        $crate::eval!(
-            {
-                $crate::eval!(
-                    $truthy
-                    $falsy
-                    { all($($rest)*) }
-                );
-            }
-            $falsy
-            { $cond }
-        );
-    };
-
-    ($truthy:tt $falsy:tt { any(#[cfg($meta:meta)]) }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { any(#[cfg($meta)],) }
-        );
-    };
-    ($truthy:tt $falsy:tt { any($op:ident($($cond:tt)*)) }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { any($op($($cond)*),) }
-        );
-    };
-    ($truthy:tt $falsy:tt { any($cond:path) }) => {
-        $crate::eval!(
-            $truthy
-            $falsy
-            { any($cond,) }
-        );
-    };
-    ($truthy:tt $falsy:tt { any(#[cfg($meta:meta)], $($rest:tt)*) }) => {
-        $crate::eval!(
-            $truthy
-            {
-                $crate::eval!(
-                    $truthy
-                    $falsy
-                    { any($($rest)*) }
-                );
-            }
-            { #[cfg($meta)] }
-        );
-    };
-    ($truthy:tt $falsy:tt { any($op:ident($($cond:tt)*), $($rest:tt)*) }) => {
-        $crate::eval!(
-            $truthy
-            {
-                $crate::eval!(
-                    $truthy
-                    $falsy
-                    { any($($rest)*) }
-                );
-            }
-            { $op($($cond)*) }
-        );
-    };
-    ($truthy:tt $falsy:tt { any($cond:path, $($rest:tt)*) }) => {
-        $crate::eval!(
-            $truthy
-            {
-                $crate::eval!(
-                    $truthy
-                    $falsy
-                    { any($($rest)*) }
-                );
-            }
-            { $cond }
-        );
-    };
-    ($truthy:tt $falsy:tt { $cond:path }) => {
-        $cond! {
-            if {
-                $crate::eval!(
-                    $truthy
-                    $falsy
-                    { true }
-                );
-            } else {
-                $crate::eval!(
-                    $truthy
-                    $falsy
-                    { false }
-                );
-            }
-        }
-    };
-}
-
 #[cfg(test)]
 mod alias_tests {
+    #![allow(unused_imports)]
+
     use super::alias;
 
     alias! {
@@ -681,134 +622,214 @@ mod alias_tests {
 }
 
 #[cfg(test)]
-mod eval_tests {
-    use super::{disabled, enabled, eval};
+mod switch_tests {
+    use super::{disabled, enabled, switch};
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { true }
-    );
+    #[test]
+    fn tests() {
+        let _a: ();
+        switch! {
+            all() => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { compile_error!("expected falsy"); }
-        { }
-        { false }
-    );
+        let _a: ();
+        switch! {
+            any() => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+            _ => {
+                _a = ();
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { _ }
-    );
+        let _a: ();
+        switch! {
+            #[cfg(all())] => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { all() }
-    );
+        let _a: ();
+        switch! {
+            not(#[cfg(all())]) => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+            _ => {
+                _a = ();
+            }
+        }
 
-    eval!(
-        { compile_error!("expected falsy"); }
-        { }
-        { any() }
-    );
+        let _a: ();
+        switch! {
+            any(#[cfg(all())]) => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { #[cfg(test)] }
-    );
+        let _a: ();
+        switch! {
+            all(#[cfg(all())]) => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { compile_error!("expected falsy"); }
-        { }
-        { not(#[cfg(test)]) }
-    );
+        let _a: ();
+        switch! {
+            enabled => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { any(#[cfg(test)]) }
-    );
+        let _a: ();
+        switch! {
+            not(enabled) => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+            _ => {
+                _a = ();
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { all(#[cfg(test)]) }
-    );
+        let _a: ();
+        switch! {
+            any(enabled) => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { enabled }
-    );
+        let _a: ();
+        switch! {
+            all(enabled) => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { compile_error!("expected falsy"); }
-        { }
-        { not(enabled) }
-    );
+        let _a: ();
+        switch! {
+            disabled => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+            _ => {
+                _a = ();
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { any(enabled) }
-    );
+        let _a: ();
+        switch! {
+            not(disabled) => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { all(enabled) }
-    );
+        let _a: ();
+        switch! {
+            any(disabled) => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+            _ => {
+                _a = ();
+            }
+        }
 
-    eval!(
-        { compile_error!("expected falsy"); }
-        { }
-        { disabled }
-    );
+        let _a: ();
+        switch! {
+            all(disabled) => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+            _ => {
+                _a = ();
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { not(disabled) }
-    );
+        let _a: ();
+        switch! {
+            any(disabled, disabled, enabled) => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { compile_error!("expected falsy"); }
-        { }
-        { any(disabled) }
-    );
+        let _a: ();
+        switch! {
+            all(enabled, enabled, enabled) => {
+                _a = ();
+            }
+            _ => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+        }
 
-    eval!(
-        { compile_error!("expected falsy"); }
-        { }
-        { all(disabled) }
-    );
+        let _a: ();
+        switch! {
+            not(not(disabled)) => {
+                _a = ();
+                compile_error!("expected skip");
+            }
+            _ => {
+                _a = ();
+            }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { any(disabled, disabled, enabled) }
-    );
+        let _a: ();
+        switch! {
+            all(any(any(not(disabled), enabled, disabled))) => {
+                _a = ();
+            }
+            _ => { compile_error!("expected skip"); }
+        }
 
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { all(enabled, enabled, enabled) }
-    );
-
-    eval!(
-        { compile_error!("expected falsy"); }
-        { }
-        { not(not(disabled)) }
-    );
-
-    eval!(
-        { }
-        { compile_error!("expected truthy"); }
-        { all(any(any(not(disabled), enabled, disabled))) }
-    );
+        let _a: ();
+        switch! {
+            any(not(enabled), disabled, all(enabled), #[cfg(test)]) => {
+                _a = ();
+            }
+            _ => { compile_error!("expected skip"); }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -825,16 +846,11 @@ mod forte_tests {
 
     switch! {
         cfg::parallel => {
-            mod blocker {}
-            mod job {}
-            mod scope {}
-            mod signal {}
             mod thread_pool {
                 pub const PARALLEL: bool = true;
             }
 
             pub use self::thread_pool::*;
-            pub use self::scope::*;
         }
         _ => {
             mod fallback {
