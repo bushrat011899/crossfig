@@ -1,0 +1,17 @@
+[package]
+name = "crossfig"
+version = "0.1.0"
+edition = "2015"
+description = "Provides compile-time feature aliases and introspection."
+repository = "https://github.com/bushrat011899/crossfig"
+license = "MIT OR Apache-2.0"
+keywords = ["cfg"]
+rust-version = "1.6.0"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(no_core)']
