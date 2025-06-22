@@ -197,9 +197,9 @@ macro_rules! switch {
 
     // Wildcard branch
     (
-        _ => $output:tt
+        _ => { $($output:tt)* }
     ) => {
-        $output
+        $($output)*
     };
 
     // #[cfg(...)] integration
@@ -210,7 +210,7 @@ macro_rules! switch {
             { $crate::switch! { _ => $output } }
             { }
             { #[cfg($cfg)] }
-        )
+        );
     };
     (
         #[cfg($cfg:meta)] => $output:tt
@@ -220,7 +220,7 @@ macro_rules! switch {
             { $crate::switch! { _ => $output } }
             { $crate::switch! { $($rest)+ } }
             { #[cfg($cfg)] }
-        )
+        );
     };
 
     // ops integration
@@ -231,7 +231,7 @@ macro_rules! switch {
             { $crate::switch! { _ => $output } }
             { }
             { $op($($args)*) }
-        )
+        );
     };
     (
         $op:ident($($args:tt)*) => $output:tt
@@ -241,7 +241,7 @@ macro_rules! switch {
             { $crate::switch! { _ => $output } }
             { $crate::switch! { $($rest)+ } }
             { $op($($args)*) }
-        )
+        );
     };
 
     // alias integration
@@ -252,7 +252,7 @@ macro_rules! switch {
             { $crate::switch! { _ => $output } }
             { }
             { $cond }
-        )
+        );
     };
     (
         $cond:path => $output:tt
@@ -262,7 +262,7 @@ macro_rules! switch {
             { $crate::switch! { _ => $output } }
             { $crate::switch! { $($rest)+ } }
             { $cond }
-        )
+        );
     };
 }
 
@@ -481,184 +481,184 @@ macro_rules! eval {
         $($falsy)*
     };
 
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { _ }) => {
+    ($truthy:tt $falsy:tt { _ }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { true }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { all() }) => {
+    ($truthy:tt $falsy:tt { all() }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { true }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { any() }) => {
+    ($truthy:tt $falsy:tt { any() }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { false }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { #[cfg($meta:meta)] }) => {
+    ($truthy:tt $falsy:tt { #[cfg($meta:meta)] }) => {
         #[cfg($meta)]
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { true }
         );
 
         #[cfg(not($meta))]
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { false }
         );
     };
 
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { not($($cond:tt)*) }) => {
+    ($truthy:tt $falsy:tt { not($($cond:tt)*) }) => {
         $crate::eval!(
-            { $($falsy)* }
-            { $($truthy)* }
+            $falsy
+            $truthy
             { $($cond)* }
         );
     };
 
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { all(#[cfg($meta:meta)]) }) => {
+    ($truthy:tt $falsy:tt { all(#[cfg($meta:meta)]) }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { all(#[cfg($meta)],) }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { all($op:ident($($cond:tt)*)) }) => {
+    ($truthy:tt $falsy:tt { all($op:ident($($cond:tt)*)) }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { all($op($($cond)*),) }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { all($cond:path) }) => {
+    ($truthy:tt $falsy:tt { all($cond:path) }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { all($cond,) }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { all(#[cfg($meta:meta)], $($rest:tt)*) }) => {
+    ($truthy:tt $falsy:tt { all(#[cfg($meta:meta)], $($rest:tt)*) }) => {
         $crate::eval!(
             {
                 $crate::eval!(
-                    { $($truthy)* }
-                    { $($falsy)* }
+                    $truthy
+                    $falsy
                     { all($($rest)*) }
                 );
             }
-            { $($falsy)* }
+            $falsy
             { #[cfg($meta)] }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { all($op:ident($($cond:tt)*), $($rest:tt)*) }) => {
+    ($truthy:tt $falsy:tt { all($op:ident($($cond:tt)*), $($rest:tt)*) }) => {
         $crate::eval!(
             {
                 $crate::eval!(
-                    { $($truthy)* }
-                    { $($falsy)* }
+                    $truthy
+                    $falsy
                     { all($($rest)*) }
                 );
             }
-            { $($falsy)* }
+            $falsy
             { $op($($cond)*) }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { all($cond:path, $($rest:tt)*) }) => {
+    ($truthy:tt $falsy:tt { all($cond:path, $($rest:tt)*) }) => {
         $crate::eval!(
             {
                 $crate::eval!(
-                    { $($truthy)* }
-                    { $($falsy)* }
+                    $truthy
+                    $falsy
                     { all($($rest)*) }
                 );
             }
-            { $($falsy)* }
+            $falsy
             { $cond }
         );
     };
 
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { any(#[cfg($meta:meta)]) }) => {
+    ($truthy:tt $falsy:tt { any(#[cfg($meta:meta)]) }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { any(#[cfg($meta)],) }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { any($op:ident($($cond:tt)*)) }) => {
+    ($truthy:tt $falsy:tt { any($op:ident($($cond:tt)*)) }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { any($op($($cond)*),) }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { any($cond:path) }) => {
+    ($truthy:tt $falsy:tt { any($cond:path) }) => {
         $crate::eval!(
-            { $($truthy)* }
-            { $($falsy)* }
+            $truthy
+            $falsy
             { any($cond,) }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { any(#[cfg($meta:meta)], $($rest:tt)*) }) => {
+    ($truthy:tt $falsy:tt { any(#[cfg($meta:meta)], $($rest:tt)*) }) => {
         $crate::eval!(
-            { $($truthy)* }
+            $truthy
             {
                 $crate::eval!(
-                    { $($truthy)* }
-                    { $($falsy)* }
+                    $truthy
+                    $falsy
                     { any($($rest)*) }
                 );
             }
             { #[cfg($meta)] }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { any($op:ident($($cond:tt)*), $($rest:tt)*) }) => {
+    ($truthy:tt $falsy:tt { any($op:ident($($cond:tt)*), $($rest:tt)*) }) => {
         $crate::eval!(
-            { $($truthy)* }
+            $truthy
             {
                 $crate::eval!(
-                    { $($truthy)* }
-                    { $($falsy)* }
+                    $truthy
+                    $falsy
                     { any($($rest)*) }
                 );
             }
             { $op($($cond)*) }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { any($cond:path, $($rest:tt)*) }) => {
+    ($truthy:tt $falsy:tt { any($cond:path, $($rest:tt)*) }) => {
         $crate::eval!(
-            { $($truthy)* }
+            $truthy
             {
                 $crate::eval!(
-                    { $($truthy)* }
-                    { $($falsy)* }
+                    $truthy
+                    $falsy
                     { any($($rest)*) }
                 );
             }
             { $cond }
         );
     };
-    ({ $($truthy:tt)* } { $($falsy:tt)* } { $cond:path }) => {
+    ($truthy:tt $falsy:tt { $cond:path }) => {
         $cond! {
             if {
                 $crate::eval!(
-                    { $($truthy)* }
-                    { $($falsy)* }
+                    $truthy
+                    $falsy
                     { true }
                 );
             } else {
                 $crate::eval!(
-                    { $($truthy)* }
-                    { $($falsy)* }
+                    $truthy
+                    $falsy
                     { false }
                 );
             }
@@ -809,4 +809,58 @@ mod eval_tests {
         { compile_error!("expected truthy"); }
         { all(any(any(not(disabled), enabled, disabled))) }
     );
+}
+
+#[cfg(test)]
+mod forte_tests {
+    use super::{alias, switch};
+
+    mod cfg {
+        use super::alias;
+
+        alias! {
+            pub parallel: { #[cfg(all())] }
+        }
+    }
+
+    switch! {
+        cfg::parallel => {
+            mod blocker {}
+            mod job {}
+            mod scope {}
+            mod signal {}
+            mod thread_pool {
+                pub const PARALLEL: bool = true;
+            }
+
+            pub use self::thread_pool::*;
+            pub use self::scope::*;
+        }
+        _ => {
+            mod fallback {
+                pub const PARALLEL: bool = false;
+            }
+
+            pub use self::fallback::*;
+        }
+    }
+
+    #[test]
+    fn is_parallel() {
+        assert!(PARALLEL);
+    }
+}
+
+#[cfg(test)]
+mod switch_as_value_tests {
+    use super::switch;
+
+    const PASSED: bool = switch! {
+        _ => { true }
+    };
+
+    #[test]
+    fn did_pass() {
+        assert!(PASSED);
+    }
 }
