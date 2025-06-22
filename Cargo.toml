@@ -1,6 +1,6 @@
 [package]
 name = "crossfig"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2015"
 description = "Provides compile-time feature aliases and introspection."
 repository = "https://github.com/bushrat011899/crossfig"
@@ -14,4 +14,4 @@ all-features = true
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
-check-cfg = ['cfg(no_core)']
+check-cfg = ['cfg(crossfig_no_core)']
