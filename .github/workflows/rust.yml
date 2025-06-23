@@ -23,10 +23,12 @@ jobs:
         components: clippy, rustfmt
     - name: Format
       run: cargo fmt --check
+      if: ${{ matrix.toolchain }} == 'stable'
     - name: Build
       run: cargo build --verbose
     - name: Clippy
       run: cargo clippy -- -D warnings
+      if: ${{ matrix.toolchain }} == 'stable'
     - name: Run tests
       run: cargo test --verbose
   msrv:
