@@ -8,20 +8,23 @@
 //! [`switch`] provides a `match`-like syntax to make complex compile-time configuration
 //! more ergonomic.
 //!
-//! ```standalone_crate
+//! ```
 //! // Without `crossfig`:
 //!
 //! #[cfg(feature = "fastest")]
+//! # type A = ();
 //! // Use the fastest algorithm!
 //!
 //! #[cfg(all(not(feature = "fastest"), feature = "fast"))]
+//! # type B = ();
 //! // Use the fast algorithm
 //!
 //! #[cfg(all(not(feature = "fastest"), not(feature = "fast")))]
+//! # type C = ();
 //! // Use the slow algorithm
 //! ```
 //!
-//! ```standalone_crate
+//! ```
 //! // With `crossfig`:
 //!
 //! crossfig::switch! {
@@ -41,7 +44,7 @@
 //!
 //! [`alias`] instead allows for creating a short-hand for common configurations.
 //!
-//! ```standalone_crate
+//! ```
 //! # use crossfig::alias;
 //! // Define an alias
 //! alias! {
@@ -60,7 +63,7 @@
 //! Individually, both are useful tools for reducing repetition in conditional compilation.
 //! But where they really shine is when combined:
 //!
-//! ```standalone_crate
+//! ```
 //! # use crossfig::{alias, switch};
 //! alias! {
 //!     std: { #[cfg(feature = "std")] },
@@ -85,7 +88,7 @@
 //! One last trick; aliases created with [`alias`] can be _exported_ in
 //! your public API.
 //!
-//! ```standalone_crate
+//! ```
 //! // In the `foo` crate:
 //! # mod foo {
 //! crossfig::alias! {
@@ -153,6 +156,7 @@
 /// # Examples
 ///
 /// ```
+/// # extern crate crossfig;
 /// # use crossfig::{switch, alias};
 /// # fn log<T>(_: T) {}
 /// # fn foo<T>(_: T) {}
@@ -402,12 +406,14 @@ macro_rules! switch {
 /// ## As a `boolean`
 ///
 /// ```
+/// # extern crate crossfig;
 /// assert_eq!(crossfig::disabled!(), false);
 /// ```
 ///
 /// ## As a Conditional Compilation Guard
 ///
 /// ```
+/// # extern crate crossfig;
 /// crossfig::disabled! {
 ///     use a_crate_that_is_not_available::*;
 ///     // ...
@@ -417,6 +423,7 @@ macro_rules! switch {
 /// ## As an `if`-Statement
 ///
 /// ```
+/// # extern crate crossfig;
 /// crossfig::disabled! {
 ///     if {
 ///         let was_disabled = false;
@@ -439,12 +446,14 @@ macro_rules! disabled {
 /// ## As a `boolean`
 ///
 /// ```
+/// # extern crate crossfig;
 /// assert_eq!(crossfig::enabled!(), true);
 /// ```
 ///
 /// ## As a Conditional Compilation Guard
 ///
 /// ```
+/// # extern crate crossfig;
 /// crossfig::enabled! {
 /// # /*
 ///     use a_crate_that_is_available::*;
@@ -457,6 +466,7 @@ macro_rules! disabled {
 /// ## As an `if`-Statement
 ///
 /// ```
+/// # extern crate crossfig;
 /// crossfig::enabled! {
 ///     if {
 ///         let was_enabled = true;
@@ -489,6 +499,7 @@ macro_rules! enabled {
 /// If `bar` defines a "`faster_algorithms`" alias:
 ///
 /// ```
+/// # extern crate crossfig;
 /// # use crossfig::alias;
 /// alias! {
 ///     pub faster_algorithms: {
@@ -506,6 +517,7 @@ macro_rules! enabled {
 ///
 /// 1. Evaluate with no contents to return a `bool` indicating if the alias is active.
 ///    ```
+///    # extern crate crossfig;
 ///    # use crossfig::alias;
 ///    # alias! {
 ///    #    std: { all() }
@@ -518,6 +530,7 @@ macro_rules! enabled {
 ///    ```
 /// 2. Pass a single code block which will only be compiled if the alias is active.
 ///    ```
+///    # extern crate crossfig;
 ///    # use crossfig::alias;
 ///    # alias! {
 ///    #    std: { all() }
@@ -530,6 +543,7 @@ macro_rules! enabled {
 /// 3. Pass a single `if { ... } else { ... }` expression to conditionally compile either the first
 ///    or the second code block.
 ///    ```
+///    # extern crate crossfig;
 ///    # use crossfig::alias;
 ///    # alias! {
 ///    #    std: { all() }
@@ -544,6 +558,7 @@ macro_rules! enabled {
 ///    ```
 /// 4. Use in a [`switch`] arm for more complex conditional compilation.
 ///    ```
+///    # extern crate crossfig;
 ///    # use crossfig::{alias, switch};
 ///    # alias! {
 ///    #    std: { all() }

@@ -146,6 +146,6 @@ crossfig::switch! {
 
 ## MSRV
 
-The minimum supported Rust version for this crate is 1.6.0, with the 2015 edition, allowing it to be used in virtually any Rust project.
-Note that support for 1.0.0 is blocked by the unavailability of `#![no_std]`.
-If support for these earlier versions of Rust would help you, please create an issue!
+The minimum supported Rust version for this crate is 1.54.0, with the 2015 edition, allowing it to be used in virtually any Rust project.
+Note that support for earlier versions are blocked by the unavailability of `#![no_std]`, `vis` types in `macro_rules`, and `concat!` in documentation.
+If support for earlier versions of Rust would help you, please create an issue!

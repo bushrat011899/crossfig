@@ -6,7 +6,7 @@ description = "Provides compile-time feature aliases and introspection."
 repository = "https://github.com/bushrat011899/crossfig"
 license = "MIT OR Apache-2.0"
 keywords = ["cfg"]
-rust-version = "1.6.0"
+rust-version = "1.54.0"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
